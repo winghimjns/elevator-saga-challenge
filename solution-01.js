@@ -1,5 +1,5 @@
 /**
- * This solution works for challenge: 01, 02, 03
+ * This solution works for challenges: 01, 02, 03
  * Refined for only 1 elevator
  */
  {
