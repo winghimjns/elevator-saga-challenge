@@ -13,7 +13,7 @@
 		const elevator = elevators[0];
 
         function queueFloor (elevator, floorNum) {
-            if (elevator.destinationQueue.indexOf(floorNum) !== 0) {
+            if (!elevator.destinationQueue.includes(floorNum)) {
                 elevator.goToFloor(floorNum);
             }
         }
