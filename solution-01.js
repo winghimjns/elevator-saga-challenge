@@ -1,8 +1,8 @@
-/**
- * This solution works for challenges: 01, 02, 03
- * Refined for only 1 elevator
- */
- {
+{
+    /**
+     * This solution works for challenges: 01, 02, 03
+     * Refined for only 1 elevator
+     */
 	init (elevators, floors) {
 
         /**
