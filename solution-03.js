@@ -137,7 +137,7 @@
 
 			constructor (elevator) {
 				this.#elevator = elevator;
-				this.setIndicator("up");
+				this.setIndicators("up");
 			}
 
 			/**
@@ -187,7 +187,7 @@
 				if (this.#onGoingTask instanceof Task) {
 					const indicator = {up: "up", down: "down", irrelevant: "both"}
 						[this.#onGoingTask.getDirection()];
-					this.setIndicator(indicator);
+					this.setIndicators(indicator);
 					this.#elevator.goToFloor(this.#onGoingTask.getFloorNum());
 				}
 			}
@@ -209,7 +209,7 @@
 				this.runOnGoingTask();
 				/**
 				 * TODO do things like:
-				 * this.setIndicator("up");
+				 * this.setIndicators("up");
 				 * this.#elevator.goToFloor();
 				 */
 			}
@@ -231,7 +231,7 @@
 			/**
 			 * @param indicator {"up"|"down"|"both"}
 			 */
-			setIndicator (indicators) {
+			setIndicators (indicators) {
 				this.#indicators = indicators;
 				this.#elevator.goingUpIndicator(
 					["up", "both"].includes(indicators));
