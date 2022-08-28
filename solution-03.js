@@ -166,7 +166,12 @@
 			 * elevator.
 			 */
 			assign (task) {
-				this.#pendingTasks = [...this.#pendingTasks, task];
+				if (
+					!this.#pendingTasks.some(pendingTask =>
+						pendingTask.isEqual(task))
+				) {
+					this.#pendingTasks = [...this.#pendingTasks, task];
+				}
 			}
 
 			/**
