@@ -190,8 +190,11 @@
 			 */
 			runOnGoingTask () {
 				if (this.#onGoingTask instanceof Task) {
-					const indicator = {up: "up", down: "down", irrelevant: "both"}
-						[this.#onGoingTask.getDirection()];
+					const indicator = {
+						up: "up",
+						down: "down",
+						irrelevant: "both",
+					}[this.#onGoingTask.getDirection()];
 					this.setIndicators(indicator);
 					this.#elevator.goToFloor(this.#onGoingTask.getFloorNum());
 				}
