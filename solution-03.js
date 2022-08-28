@@ -212,7 +212,12 @@
 			}
 
 			onIdle () {
-				console.log("task assigned: ", this.#pendingTasks);
+				console.log("tasks: ");
+				console.table(this.#pendingTasks.map(task => ({
+					type: task.getType(),
+					direction: task.getDirection(),
+					floorNum: task.getFloorNum(),
+				})));
 				this.#onGoingTask = this.popNextTask();
 				this.runOnGoingTask();
 				/**
