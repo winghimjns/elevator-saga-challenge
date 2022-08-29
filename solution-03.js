@@ -173,6 +173,21 @@
 			}
 
 			/**
+			 * Update the state with the on going task. 
+			 * ! Should be run right at the moment when the on going task is 
+			 * finished.
+			 */
+			updateStateWithOnGoingTask () {
+				const onGoingTask = this.#onGoingTask;
+				const type = {
+					up: "stop_up",
+					down: "stop_down",
+					irrelevant: "stop",
+				}[onGoingTask.direction()];
+				this.#state = new State(onGoingTask.getFloorNum(), type);
+			}
+
+			/**
 			 * Assign a task to current elevator.
 			 * ! Only run this after confirming the task should assign to this
 			 * elevator.
@@ -206,6 +221,15 @@
 						this.#pendingTasks = [...this.#pendingTasks, task];
 					}
 				}
+			}
+
+			/**
+			 * Shift task.
+			 */
+			shiftTask () {
+				this.updateStateWithOnGoingTask();
+				this.#onGoingTask = this.popNextTask();
+				this.runOnGoingTask();
 			}
 
 			/**
@@ -295,8 +319,7 @@
 				// 	direction: task.getDirection(),
 				// 	floorNum: task.getFloorNum(),
 				// })));
-				this.#onGoingTask = this.popNextTask();
-				this.runOnGoingTask();
+				this.shiftTask();
 				/**
 				 * TODO do things like:
 				 * this.setIndicators("up");
