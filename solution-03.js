@@ -310,6 +310,14 @@
 						this.#pendingTasks = [...this.#pendingTasks, task];
 					}
 				}
+				this.checkInterruption();
+			}
+
+			/**
+			 * Check if task interruption is available, and do it.
+			 */
+			checkInterruption () {
+				// TODO : check if interruption is available and do it.
 			}
 
 			/**
