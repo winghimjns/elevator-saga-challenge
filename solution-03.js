@@ -172,10 +172,90 @@
 
 			/**
 			 * Seek next task
-			 * @returns {Task}
+			 * @returns {Task|null}
 			 */
 			seekNextTask () {
-				// TODO : make a better decision
+				const pendingTasks = this.#pendingTasks;
+				const onGoingTask = this.#onGoingTask;
+				const state = this.#state;
+				
+				if (this.#pendingTasks.length === 0) { return null; }
+
+				if (this.#state instanceof State) {
+					const type = this.#state.getType();
+					const floorNum = this.#state.getFloorNum();
+					if (["pass_up", "stop_up"].includes(type)) {
+						const result = this.#pendingTasks.reduce((acc, task) => {
+							if (!(acc instanceof Task)) { return task; }
+							if (
+								["up", "irrelevant"]
+									.includes(task.getDirection()) &&
+								task.getFloorNum() > floorNum
+							) {
+								if (
+									["up", "irrelevant"]
+										.includes(acc.getDirection()) &&
+									acc.getFloorNum() > floorNum
+								) {
+									return task.getFloorNum() < acc.getFloorNum() ? task : acc;
+								}
+								return task;
+							}
+							return acc;
+						}, null);
+						return result;
+					}
+					if (["pass_down", "stop_down"].includes(type)) {
+						return this.#pendingTasks.reduce((acc, task) => {
+							if (!(acc instanceof Task)) { return task; }
+							if (
+								["down", "irrelevant"]
+									.includes(task.getDirection()) &&
+								task.getFloorNum() < floorNum
+							) {
+								if (
+									["down", "irrelevant"]
+										.includes(acc.getDirection()) &&
+									acc.getFloorNum() < floorNum
+								) {
+									return task.getFloorNum() > acc.getFloorNum() ? task : acc;
+								}
+								return task;
+							}
+							return acc;
+						}, null);
+					}
+				}
+
+				if (this.#onGoingTask instanceof Task) {
+					const direction = this.#onGoingTask.getDirection();
+					const floorNum = this.#onGoingTask.getFloorNum();
+					if (direction === "up") {
+						return this.#pendingTasks.reduce((acc, task) => {
+							if (!(acc instanceof Task)) { return task; }
+							if (
+								["up", "irrelevant"]
+									.includes(task.getDirection()) && 
+								task.getFloorNum() > floorNum &&
+								task.getFloorNum() < acc.getFloorNum()
+							) { return task; }
+							return acc;
+						}, null);
+					}
+					if (direction === "down") {
+						return this.#pendingTasks.reduce((acc, task) => {
+							if (!(acc instanceof Task)) { return task; }
+							if (
+								["down", "irrelevant"]
+									.includes(task.getDirection()) && 
+								task.getFloorNum() < floorNum &&
+								task.getFloorNum() > acc.getFloorNum()
+							) { return task; }
+							return acc;
+						}, null);
+					}
+				}
+
 				return this.#pendingTasks[0];
 			}
 
