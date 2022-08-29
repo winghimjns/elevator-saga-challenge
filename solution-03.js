@@ -27,16 +27,22 @@
 			 */
 			#type;
 
+			/**
+			 * @type {Task[]}
+			 */
+			#combinedBy;
 
 			static combineDirection (a, b) {
 				if (a === "irrelevant" && a === b) { return "irrelevant"; }
 				return [a, b].find(direction => direction !== "irrelevant");
 			}
 
-			constructor (floorNum, direction, type) {
+			constructor (floorNum, direction, type, combinedBy = null) {
 				this.#floorNum = floorNum;
 				this.#direction = direction;
 				this.#type = type;
+				this.#combinedBy = combinedBy;
+				console.log(`Task ${combinedBy ? "combined" : "created"}: ${type} ${direction} ${floorNum}`);
 			}
 
 			/**
@@ -49,7 +55,8 @@
 					Task.combineDirection(this.#direction, task.getDirection());
 				const newType = this.#type === task.getType() ? this.#type :
 					"both";
-				return new Task(this.#floorNum, newDirection, newType);
+				return new Task(this.#floorNum, newDirection, newType,
+					[this, task]);
 			}
 
 			/**
@@ -120,7 +127,7 @@
 
 			/**
 			 * Pending tasks.
-			 * @type {Array<Task>}
+			 * @type {Task[]}
 			 */
 			#pendingTasks = [];
 
@@ -179,12 +186,14 @@
 			 */
 			updateStateWithOnGoingTask () {
 				const onGoingTask = this.#onGoingTask;
-				const type = {
-					up: "stop_up",
-					down: "stop_down",
-					irrelevant: "stop",
-				}[onGoingTask.direction()];
-				this.#state = new State(onGoingTask.getFloorNum(), type);
+				if (onGoingTask instanceof Task) {
+					const type = {
+						up: "stop_up",
+						down: "stop_down",
+						irrelevant: "stop",
+					}[onGoingTask.getDirection()];
+					this.#state = new State(onGoingTask.getFloorNum(), type);
+				}
 			}
 
 			/**
@@ -207,15 +216,15 @@
 							.indexOf(combinableTask);
 						const newPendingTasks = [...this.#pendingTasks];
 						newPendingTasks[index] = combinableTask.combine(task);
-						console.log("combinable:");
-						console.table(
-							[combinableTask, task, newPendingTasks[index]].map(
-								task => ({
-									type: task.getType(),
-									direction: task.getDirection(),
-									floorNum: task.getFloorNum(),
-								})
-							));
+						// console.log("combinable:");
+						// console.table(
+						// 	[combinableTask, task, newPendingTasks[index]].map(
+						// 		task => ({
+						// 			type: task.getType(),
+						// 			direction: task.getDirection(),
+						// 			floorNum: task.getFloorNum(),
+						// 		})
+						// 	));
 						this.#pendingTasks = newPendingTasks;
 					} else {
 						this.#pendingTasks = [...this.#pendingTasks, task];
@@ -227,6 +236,12 @@
 			 * Shift task.
 			 */
 			shiftTask () {
+				// console.log("tasks: ");
+				console.table(this.#pendingTasks.map(task => ({
+					type: task.getType(),
+					direction: task.getDirection(),
+					floorNum: task.getFloorNum(),
+				})));
 				this.updateStateWithOnGoingTask();
 				this.#onGoingTask = this.popNextTask();
 				this.runOnGoingTask();
