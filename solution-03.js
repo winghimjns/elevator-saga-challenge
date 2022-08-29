@@ -239,13 +239,53 @@
 
 			/**
 			 * Calculating the "availability point" for a coming task.
-			 * ! The number should be between 0 and 1 (inclusive).
 			 * @param task {Task}
 			 * @returns {number}
 			 */
 			getAvailabilityPoint (task) {
-				// TODO
-				return 1;
+				const floorCount = this.getFloorCount();
+				const liftedWeightPower = 1;
+				const onGoingTaskPower = 1;
+				const pendingTasksPower = 1;
+				let point = 1;
+
+				// 1: Check lifted weight
+				const maxPassengerCount = this.#elevator.maxPassengerCount();
+				const loadFactor = this.#elevator.loadFactor();
+				point *= 
+					(1 - loadFactor) * maxPassengerCount * liftedWeightPower;
+
+				// 2: Check on going task's direction
+				const onGoingTask = this.#onGoingTask;
+				if (onGoingTask instanceof Task) {
+					if (
+						(
+							onGoingTask.getFloorNum() > task.getFloorNum() &&
+							onGoingTask.getDirection() === "down" &&
+							task.getDirection() === "down"
+						) ||
+						(
+							onGoingTask.getFloorNum() < task.getFloorNum() &&
+							onGoingTask.getDirection() === "up" &&
+							task.getDirection() === "up"
+						)
+					) {
+						piont *= 
+							(
+								floorCount / 2 - 
+								Math.abs(
+									onGoingTask.getFloorNum() -
+									task.getFloorNum()
+								)
+							) * onGoingTaskPower;
+					}
+				}
+
+				// 3: Pending tasks: less pending tasks, higher points
+				const pendingTasks = this.#pendingTasks;
+				point *= ((floorCount - Math.min(pendingTasks, floorCount)) / floorCount) * pendingTasksPower;
+
+				return point;
 			}
 
 			onIdle () {
@@ -395,6 +435,8 @@
 				this.#controller = controller;
 				this.#floors.forEach(floor => floor.setController(controller));
 			}
+
+			getFloorCount () { return this.#floors.length; }
 		}
 
 		class Controller {
@@ -417,6 +459,10 @@
 				if (!this.#elevatorGroup.isTaskHandled(task)) {
 					this.#elevatorGroup.findAndAssign(task);
 				}
+			}
+
+			getFloorCount () {
+				return this.#floorGroup.getFloorCount();
 			}
 		}
 
