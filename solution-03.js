@@ -230,7 +230,10 @@
 						irrelevant: "none",
 					}[this.#onGoingTask.getDirection()];
 					this.setIndicators(indicator);
-					this.#elevator.goToFloor(this.#onGoingTask.getFloorNum());
+					this.#elevator.destinationQueue = [
+						this.#onGoingTask.getFloorNum(),
+					];
+					this.#elevator.checkDestinationQueue();
 				}
 			}
 
