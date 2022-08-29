@@ -341,11 +341,7 @@
 			}
 
 			onStopAtFloor (floorNum) {
-				/**
-				 * TODO : to determine if the stopping is "stop", "stop_up", or
-				 * "stop_down".
-				 */
-				this.#state = new State(floorNum, "stop");
+				// Silence is golden
 			}
 
 			/**
