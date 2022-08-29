@@ -40,11 +40,11 @@
 			}
 
 			/**
+			 * ! Assume combinable checking is done.
 			 * @param task {Task} another task to combine
 			 * @returns {Task|null} Returns null if it can't be combined
 			 */
 			combine (task) {
-				if (!this.isCombinable(task)) { return null; }
 				const newDirection =
 					Task.combineDirection(this.#direction, task.getDirection());
 				const newType = this.#type === task.getType() ? this.#type :
@@ -131,13 +131,25 @@
 			#onGoingTask = null;
 
 			/**
-			 * @type {"up"|"down"|"both"}
+			 * @type {"up"|"down"|"both"|"none"}
 			 */
 			#indicators;
+
+			/**
+			 * @type {Controller}
+			 */
+			#controller;
 
 			constructor (elevator) {
 				this.#elevator = elevator;
 				this.setIndicators("up");
+				elevator.on("idle", () => this.onIdle());
+				elevator.on("floor_button_pressed", floorNum =>
+					this.onFloorButtonPress(floorNum));
+				elevator.on("passing_floor", (floorNum, direction) =>
+					this.onPassingFloor(floorNum, direction));
+				elevator.on("stopped_at_floor", floorNum =>
+					this.onStopAtFloor(floorNum));
 			}
 
 			/**
@@ -170,7 +182,29 @@
 					!this.#pendingTasks.some(pendingTask =>
 						pendingTask.isEqual(task))
 				) {
-					this.#pendingTasks = [...this.#pendingTasks, task];
+					/**
+					 * Try to combine task
+					 */
+					const combinableTask = this.#pendingTasks.find(
+						pendingTask => pendingTask.isCombinable(task));
+					if (combinableTask) {
+						const index = this.#pendingTasks
+							.indexOf(combinableTask);
+						const newPendingTasks = [...this.#pendingTasks];
+						newPendingTasks[index] = combinableTask.combine(task);
+						console.log("combinable:");
+						console.table(
+							[combinableTask, task, newPendingTasks[index]].map(
+								task => ({
+									type: task.getType(),
+									direction: task.getDirection(),
+									floorNum: task.getFloorNum(),
+								})
+							));
+						this.#pendingTasks = newPendingTasks;
+					} else {
+						this.#pendingTasks = [...this.#pendingTasks, task];
+					}
 				}
 			}
 
@@ -193,7 +227,7 @@
 					const indicator = {
 						up: "up",
 						down: "down",
-						irrelevant: "both",
+						irrelevant: "none",
 					}[this.#onGoingTask.getDirection()];
 					this.setIndicators(indicator);
 					this.#elevator.goToFloor(this.#onGoingTask.getFloorNum());
@@ -212,12 +246,12 @@
 			}
 
 			onIdle () {
-				console.log("tasks: ");
-				console.table(this.#pendingTasks.map(task => ({
-					type: task.getType(),
-					direction: task.getDirection(),
-					floorNum: task.getFloorNum(),
-				})));
+				// console.log("tasks: ");
+				// console.table(this.#pendingTasks.map(task => ({
+				// 	type: task.getType(),
+				// 	direction: task.getDirection(),
+				// 	floorNum: task.getFloorNum(),
+				// })));
 				this.#onGoingTask = this.popNextTask();
 				this.runOnGoingTask();
 				/**
@@ -225,6 +259,28 @@
 				 * this.setIndicators("up");
 				 * this.#elevator.goToFloor();
 				 */
+			}
+
+			onFloorButtonPress (floorNum) {
+				/**
+				 * No checking needed, as this task needs to  be done by the
+				 * current elevator.
+				 */
+				this.assign(new Task(floorNum, "irrelevant", "drop"));
+			}
+
+			onPassingFloor (floorNum, direction) {
+				this.setState(
+					new State(floorNum,
+						direction === "up" ? "pass_up" : "pass_down"));
+			}
+
+			onStopAtFloor (floorNum) {
+				/**
+				 * TODO : to determine if the stopping is "stop", "stop_up", or
+				 * "stop_down".
+				 */
+				this.setState(new State(floorNum, "stop"));
 			}
 
 			/**
@@ -242,7 +298,7 @@
 			getState () { return this.#state; }
 
 			/**
-			 * @param indicator {"up"|"down"|"both"}
+			 * @param indicator {"up"|"down"|"both"|"none"}
 			 */
 			setIndicators (indicators) {
 				this.#indicators = indicators;
@@ -253,6 +309,7 @@
 			}
 
 			setState (state) { this.#state = state; }
+			setController (controller) { this.#controller = controller; }
 		}
 
 		class ElevatorGroup {
@@ -261,43 +318,6 @@
 
 			constructor (elevators) {
 				this.#elevators = elevators;
-				elevators.forEach(elevator => {
-					const _elevator = elevator.getInstance();
-					_elevator.on("idle", () =>
-						this.onIdle(elevator));
-					_elevator.on("floor_button_pressed", floorNum =>
-						this.onFloorButtonPress(elevator, floorNum));
-					_elevator.on("passing_floor", (floorNum, direction) =>
-						this.onPassingFloor(elevator, floorNum, direction));
-					_elevator.on("stopped_at_floor", floorNum =>
-						this.onStopAtFloor(elevator, floorNum));
-				});
-			}
-
-			onIdle (elevator) {
-				elevator.onIdle();
-			}
-
-			onFloorButtonPress (elevator, floorNum) {
-				/**
-				 * No checking needed, as this task needs to  be done by the
-				 * current elevator.
-				 */
-				elevator.assign(new Task(floorNum, "irrelevant", "drop"));
-			}
-
-			onPassingFloor (elevator, floorNum, direction) {
-				elevator.setState(
-					new State(floorNum,
-						direction === "up" ? "pass_up" : "pass_down"));
-			}
-
-			onStopAtFloor (elevator, floorNum) {
-				/**
-				 * TODO : to determine if the stopping is "stop", "stop_up", or
-				 * "stop_down".
-				 */
-				elevator.setState(new State(floorNum, "stop"));
 			}
 
 			/**
@@ -320,12 +340,17 @@
 				elevator.assign(task);
 			}
 
-			setController (controller) { this.#controller = controller; }
+			setController (controller) {
+				this.#controller = controller;
+				this.#elevators.forEach(elevator =>
+					elevator.setController(controller));
+			}
 		}
 
 		class Floor {
 			#floor;
 			#floorNum;
+			#controller;
 
 			constructor (floor, floorNum) {
 				this.#floor = floor;
@@ -334,6 +359,7 @@
 
 			getInstance () { return this.#floor; }
 			getFloorNum () { return this.#floorNum; }
+			setController (controller) { this.#controller = controller; }
 		}
 
 		class FloorGroup {
@@ -362,7 +388,10 @@
 					new Task(floorNum, "down", "take"));
 			}
 
-			setController (controller) { this.#controller = controller; }
+			setController (controller) {
+				this.#controller = controller;
+				this.#floors.forEach(floor => floor.setController(controller));
+			}
 		}
 
 		class Controller {
