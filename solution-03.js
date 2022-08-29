@@ -313,9 +313,8 @@
 			}
 
 			onPassingFloor (floorNum, direction) {
-				this.setState(
-					new State(floorNum,
-						direction === "up" ? "pass_up" : "pass_down"));
+				this.#state = new State(floorNum,
+					direction === "up" ? "pass_up" : "pass_down");
 			}
 
 			onStopAtFloor (floorNum) {
@@ -323,7 +322,7 @@
 				 * TODO : to determine if the stopping is "stop", "stop_up", or
 				 * "stop_down".
 				 */
-				this.setState(new State(floorNum, "stop"));
+				this.#state = new State(floorNum, "stop");
 			}
 
 			/**
@@ -351,7 +350,6 @@
 					["down", "both"].includes(indicators));
 			}
 
-			setState (state) { this.#state = state; }
 			setController (controller) { this.#controller = controller; }
 		}
 
