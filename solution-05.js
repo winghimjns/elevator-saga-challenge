@@ -9,34 +9,33 @@
         const log = {
             levels: [
                 'debug',
-                // 'info',
+                'info',
                 'warn',
                 'error',
                 'event',
-                // 'tick',
+                'tick',
             ],
-            debug () { this.levels.includes('debug') && console.debug.call(console, '%[DEBUG]', 'color: #929292', logTime(), ...arguments) },
+            debug () { this.levels.includes('debug') && console.debug.call(console, '%c[DEBUG]', 'color: #929292', logTime(), ...arguments) },
             info () { this.levels.includes('info') && console.info.call(console, '%c[INFO] ', 'color: #6a8dc9;', logTime(), ...arguments) },
             warn () { this.levels.includes('warn') && console.warn.call(console, '%c[WARN] ', 'color: #ff0;', logTime(), ...arguments) },
             error () { this.levels.includes('error') && console.error.call(console, '[ERROR]', logTime(), ...arguments) },
             event () { this.levels.includes('event') && console.info.call(console, '%c[EVENT]', 'color: rgb(230, 182, 116);', logTime(), ...arguments) },
             tick () { this.levels.includes('tick') && console.info.call(console, '%c[TICK] ', 'color: #162f16;', logTime(), ...arguments) },
         };
+        function nameOf(entity) { return elevators.indexOf(entity) !== -1 ? `🛗${elevators.indexOf(entity)}` : `🏢${floors.indexOf(entity)}`; }
 
         /**
          * Event logs
          */
         elevators.forEach((elevator, index) => {
-            const elevatorName = `🛗${index}`;
-            elevator.on('idle', () => { log.event(elevatorName, 'idle') });
-            elevator.on('floor_button_pressed', (floorNum) => { log.event(elevatorName, `👉${floorNum}`, 'floor_button_pressed') });
-            elevator.on('passing_floor', (floorNum, direction) => { log.event(elevatorName, `${direction === 'up' ? '⤴️' : '⤵️'}${floorNum}`, 'passing_floor') });
-            elevator.on('stopped_at_floor', (floorNum) => { log.event(elevatorName, `↔️${floorNum}`, 'stopped_at_floor') });
+            elevator.on('idle', () => { log.event(nameOf(elevator), 'idle') });
+            elevator.on('floor_button_pressed', (floorNum) => { log.event(nameOf(elevator), `👉${floorNum}`, 'floor_button_pressed') });
+            elevator.on('passing_floor', (floorNum, direction) => { log.event(nameOf(elevator), `${direction === 'up' ? '⤴️' : '⤵️'}${floorNum}`, 'passing_floor') });
+            elevator.on('stopped_at_floor', (floorNum) => { log.event(nameOf(elevator), `↔️${floorNum}`, 'stopped_at_floor') });
         });
         floors.forEach((floor, index) => {
-            const floorName = `🏢${index}`;
-            floor.on('up_button_pressed', () => { log.event(floorName, '👉⬆️', 'up_button_pressed') });
-            floor.on('down_button_pressed', () => { log.event(floorName, '👉⬇️', 'down_button_pressed') });
+            floor.on('up_button_pressed', () => { log.event(nameOf(floor), '👉⬆️', 'up_button_pressed') });
+            floor.on('down_button_pressed', () => { log.event(nameOf(floor), '👉⬇️', 'down_button_pressed') });
         });
 
         log.info('start', start.toISOString());
@@ -62,18 +61,26 @@
         });
 
         const consume = () => {
-            if (state.events.length === 0) { return; }
+            /**
+             * Early returns
+             */
+            if (state.events.length === 0) {
+                log.info('consume', 'no events to consume');
+                return;
+            }
 
             /**
-             * Tick logs
+             * Warnings if any elevators carries more than 80% of its capacity
              */
-            log.tick('loadFactor', elevators.map((elevator) => elevator.loadFactor()));
+            elevators.forEach((elevator, index) => {
+                const loadFactor = elevator.loadFactor();
+                elevator.loadFactor() > 0.8 && log.warn(nameOf(elevator), `loadFactor reaches ${loadFactor.toFixed(2)}`);
+            });
 
             /**
              * Variables
              */
             const currentDestinationQueue = [...elevators[0].destinationQueue];
-            const stopLoading = elevators.every((elevator) => elevator.loadFactor() >= 0.7);
 
             log.debug('consume before', 'currentFloor:', elevators[0].currentFloor(), 'lastDirection:', state.lastDirection, 'destinationQueue:', elevators[0].destinationQueue, 'events:', _.map(state.events, 1));
 
@@ -81,34 +88,29 @@
              * Actual logic
              */
             while (state.events.length > 0) {
-                const event = state.events.shift();
-                const [eventName, floorNum] = event;
+                const [eventName, floorNum] = state.events.shift();
 
                 if (['floor_button_pressed', 'up_button_pressed', 'down_button_pressed'].includes(eventName) && !currentDestinationQueue.includes(floorNum)) {
                     currentDestinationQueue.push(floorNum);
                 }
             }
 
-            const [nextFloor, ...restFloors] = currentDestinationQueue;
-            const currentFloor = elevators[0].currentFloor();
-            const currentDirection = nextFloor === currentFloor ? state.lastDirection : (nextFloor > currentFloor ? 'up' : 'down');
-            state.lastDirection = currentDirection;
-            const destinationFloor = currentDirection === 'up' ? Math.max(...restFloors) : Math.min(...restFloors);
-
-            if (nextFloor === undefined) { return; }
-
-            const towardsFloors = restFloors.filter((floorNum) => {
-                return (floorNum >= nextFloor && floorNum <= destinationFloor) || (floorNum <= nextFloor && floorNum >= destinationFloor);
-            }).sort();
-            const behindFloors = restFloors.filter((floorNum) => !towardsFloors.includes(floorNum)).sort();
-
-            if (currentDirection === 'up') {
-                elevators[0].destinationQueue = [nextFloor, ...towardsFloors, ...behindFloors.reverse()];
-            } else {
-                elevators[0].destinationQueue = [nextFloor, ...towardsFloors.reverse(), ...behindFloors];
+            const currentFloorNum = elevators[0].currentFloor();
+            if (currentDestinationQueue.length === 0) {
+                log.info(nameOf(elevators[0]), `no new items in destination queue`);
+                return;
             }
 
+            const [nextFloorNum, ...restFloorNums] = currentDestinationQueue;
+            const currentDirection = nextFloorNum === currentFloorNum ? state.lastDirection : (nextFloorNum > currentFloorNum ? 'up' : 'down');
+            const towardsFloorNums = restFloorNums.filter((floorNum) => currentDirection === 'up' ? floorNum >= nextFloorNum : floorNum <= nextFloorNum);
+            const behindFloorNums = restFloorNums.filter((floorNum) => !towardsFloorNums.includes(floorNum)).sort();
+
+            const newRestFloorNums = [...towardsFloorNums, ...behindFloorNums.reverse()];
+            elevators[0].destinationQueue = [nextFloorNum, ...(currentDirection === 'up' ? newRestFloorNums : newRestFloorNums.reverse())];
             elevators[0].checkDestinationQueue();
+
+            state.lastDirection = currentDirection;
             log.debug('consume after ', 'currentFloor:', elevators[0].currentFloor(), 'currentDirection:', currentDirection, 'destinationQueue:', elevators[0].destinationQueue, 'events:', _.map(state.events, 1));
         };
 
