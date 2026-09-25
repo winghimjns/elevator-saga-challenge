@@ -15,27 +15,55 @@
                 'event',
                 'tick',
             ],
-            debug () { this.levels.includes('debug') && console.debug.call(console, '%c[DEBUG]', 'color: #929292', logTime(), ...arguments) },
-            info () { this.levels.includes('info') && console.info.call(console, '%c[INFO] ', 'color: #6a8dc9;', logTime(), ...arguments) },
-            warn () { this.levels.includes('warn') && console.warn.call(console, '%c[WARN] ', 'color: #ff0;', logTime(), ...arguments) },
-            error () { this.levels.includes('error') && console.error.call(console, '[ERROR]', logTime(), ...arguments) },
-            event () { this.levels.includes('event') && console.info.call(console, '%c[EVENT]', 'color: rgb(230, 182, 116);', logTime(), ...arguments) },
-            tick () { this.levels.includes('tick') && console.info.call(console, '%c[TICK] ', 'color: #162f16;', logTime(), ...arguments) },
+            debug () { this.levels.includes('debug') && console.info.call(console, '%c🛠️[DEBUG]', 'color: #929292;', logTime(), ...arguments); },
+            info () { this.levels.includes('info') && console.info.call(console, '%cℹ️[INFO] ', 'color: #6a8dc9;', logTime(), ...arguments); },
+            warn () { this.levels.includes('warn') && console.info.call(console, '%c⚠️[WARN] ', 'color: #ff0;', logTime(), ...arguments); },
+            error () { this.levels.includes('error') && console.info.call(console, '%c🚨[ERROR]', 'color: #f00', logTime(), ...arguments); },
+            event () { this.levels.includes('event') && console.info.call(console, '%c💬[EVENT]', 'color: #2bff00;', logTime(), ...arguments); },
+            tick () { this.levels.includes('tick') && console.info.call(console, '%c⏳[TICK] ', 'color: #e1701a;', logTime(), ...arguments); },
         };
-        function nameOf(entity) { return elevators.indexOf(entity) !== -1 ? `🛗${elevators.indexOf(entity)}` : `🏢${floors.indexOf(entity)}`; }
+
+        const print = {
+            nameOf(entity) { return elevators.includes(entity) ? `🛗${this.number(elevators.indexOf(entity))}` : `🏢${this.number(floors.indexOf(entity))}`; },
+            loadEmoji(elevator) { return ['🌑', '🌑', '🌘', '🌗', '🌖', '🌕'][Math.ceil(elevator.loadFactor() * 5)]; },
+            elevator(elevator) { return `${this.nameOf(elevator)}${this.loadEmoji(elevator)}${elevator.currentFloor()}/F` },
+            floor(floor) { return this.nameOf(floor); },
+            number(num) { return String(num).split('').map((digit) => ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'][parseInt(digit)]).join(''); },
+        };
 
         /**
          * Event logs
          */
         elevators.forEach((elevator, index) => {
-            elevator.on('idle', () => { log.event(nameOf(elevator), 'idle') });
-            elevator.on('floor_button_pressed', (floorNum) => { log.event(nameOf(elevator), `👉${floorNum}`, 'floor_button_pressed') });
-            elevator.on('passing_floor', (floorNum, direction) => { log.event(nameOf(elevator), `${direction === 'up' ? '⤴️' : '⤵️'}${floorNum}`, 'passing_floor') });
-            elevator.on('stopped_at_floor', (floorNum) => { log.event(nameOf(elevator), `↔️${floorNum}`, 'stopped_at_floor') });
+            elevator.on('idle', () => { log.event('😪', print.elevator(elevator)); });
+            elevator.on('floor_button_pressed', (floorNum) => { log.event(`🫵${print.number(floorNum)}`, print.elevator(elevator)); });
+            elevator.on('passing_floor', (floorNum, direction) => { log.event(`${direction === 'up' ? '⤴️' : '⤵️'}${print.number(floorNum)}`, print.elevator(elevator)); });
+            elevator.on('stopped_at_floor', (floorNum) => { log.event('↔️', print.elevator(elevator)); });
         });
         floors.forEach((floor, index) => {
-            floor.on('up_button_pressed', () => { log.event(nameOf(floor), '👉⬆️', 'up_button_pressed') });
-            floor.on('down_button_pressed', () => { log.event(nameOf(floor), '👉⬇️', 'down_button_pressed') });
+            floor.on('up_button_pressed', () => { log.event('🔼', print.floor(floor)); });
+            floor.on('down_button_pressed', () => { log.event('🔽', print.floor(floor)); });
+        });
+
+        /**
+         * Advanced logs
+         */
+        elevators.forEach((elevator, index) => {
+            let loadState = null;
+            const checkLoading = () => {
+                const loadFactor = elevator.loadFactor();
+                if (loadState && loadState.loadFactor === loadFactor) {
+                    log.warn(print.nameOf(elevator), 'loadFactor same?');
+                }
+            };
+            elevator.on('stopped_at_floor', (floorNum) => {
+                checkLoading();
+                loadState = { loadFactor: elevator.loadFactor(), floorNum };
+            });
+            elevator.on('passing_floor', () => {
+                checkLoading();
+                loadState = null;
+            });
         });
 
         log.info('start', start.toISOString());
@@ -74,7 +102,7 @@
              */
             elevators.forEach((elevator, index) => {
                 const loadFactor = elevator.loadFactor();
-                elevator.loadFactor() > 0.8 && log.warn(nameOf(elevator), `loadFactor reaches ${loadFactor.toFixed(2)}`);
+                elevator.loadFactor() > .8 && log.warn(print.nameOf(elevator), `loadFactor reaches ${loadFactor.toFixed(2)}`);
             });
 
             /**
@@ -82,7 +110,7 @@
              */
             const currentDestinationQueue = [...elevators[0].destinationQueue];
 
-            log.debug('consume before', 'currentFloor:', elevators[0].currentFloor(), 'lastDirection:', state.lastDirection, 'destinationQueue:', elevators[0].destinationQueue, 'events:', _.map(state.events, 1));
+            log.tick('start', print.floor(floors[elevators[0].currentFloor()]), state.lastDirection === 'up' ? '⬆️' : '⬇️', 'curr:', elevators[0].destinationQueue, 'pending:', _.map(state.events, 1));
 
             /**
              * Actual logic
@@ -97,7 +125,7 @@
 
             const currentFloorNum = elevators[0].currentFloor();
             if (currentDestinationQueue.length === 0) {
-                log.info(nameOf(elevators[0]), `no new items in destination queue`);
+                log.info(print.nameOf(elevators[0]), `no new items in destination queue`);
                 return;
             }
 
@@ -111,7 +139,7 @@
             elevators[0].checkDestinationQueue();
 
             state.lastDirection = currentDirection;
-            log.debug('consume after ', 'currentFloor:', elevators[0].currentFloor(), 'currentDirection:', currentDirection, 'destinationQueue:', elevators[0].destinationQueue, 'events:', _.map(state.events, 1));
+            log.tick('end  ', print.floor(floors[elevators[0].currentFloor()]), currentDirection === 'up' ? '⬆️' : '⬇️', 'curr:', elevators[0].destinationQueue);
         };
 
         const tick = _.debounce(consume, 400); // Debouncing instead of throttling to give time for lift to chill. It often needs time to stop and pick up passengers.
