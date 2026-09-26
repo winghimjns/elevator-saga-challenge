@@ -1,6 +1,10 @@
 {
     /**
      * Solution 5, finishing challenge 1, 2, and 3
+     * 
+     * 2 things to improve
+     * 1. Experiement for when passing a floor, can it stop right there, and how to; Current implementation makes "next planned floor" not changeable.
+     * 2. Up and down indicator isn't used.
      */
     init: function(elevators, floors) {
         console.clear();
